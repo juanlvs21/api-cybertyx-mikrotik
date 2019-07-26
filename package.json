@@ -1,0 +1,23 @@
+{
+    "name": "mikrotikapi",
+    "version": "1.0.0",
+    "description": "Api Mikrotik ",
+    "main": "app.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "start": "node app.js",
+        "dev": "nodemon --watch app.js"
+    },
+    "author": "Juan Villarroel",
+    "license": "ISC",
+    "dependencies": {
+        "atob": "^2.1.2",
+        "btoa": "^1.2.1",
+        "cors": "^2.8.5",
+        "crypto-js": "^3.1.9-1",
+        "express": "^4.16.4",
+        "mongoose": "^5.6.6",
+        "node-routeros": "^1.6.2",
+        "nodemon": "^1.19.1"
+    }
+}
