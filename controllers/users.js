@@ -1,10 +1,10 @@
 // Dependencies
-const CryptoJS = require("crypto-js");
-const atob = require("atob");
-const RosApi = require('node-routeros').RouterOSAPI;
+const CryptoJS = require("crypto-js")
+const atob = require("atob")
+const RosApi = require('node-routeros').RouterOSAPI
 
 // Models
-const User = require('../models/user');
+const User = require('../models/user')
 
 const userController = {};
 
@@ -13,7 +13,7 @@ const conn = new RosApi({
     user: 'admin',
     password: 'mafafa',
     keepalive: true
-});
+})
 
 const secretCryptoKey = 'tyx1q2w3e4r()'
 
@@ -46,7 +46,7 @@ const formatBytes = (bytes) => {
     } else {
         bytes = "0 Bytes"
     }
-    return bytes;
+    return bytes
 }
 
 
@@ -57,20 +57,29 @@ userController.mikrotikCreateUsers = (req, res, next) => {
                 .then((data) => {
                     let user
                     for (let i = 1; i < data.length; i++) {
-                        user = new User({
-                            id: data[i]['.id'],
-                            user: data[i].name,
-                            name: null,
-                            password: CryptoJS.HmacSHA1(data[i].password, secretCryptoKey),
-                            profile: data[i].profile,
-                            uptime: data[i].uptime,
-                            bytesIn: data[i]['bytes-in'],
-                            bytesOut: data[i]['bytes-out'],
-                            packetsIn: data[i]['packets-in'],
-                            packetsOut: data[i]['packets-out'],
-                            dynamic: data[i].dynamic,
-                            disabled: data[i].disabled,
-                        });
+                        if (data[i].name == 'admin' || data[i].name == 'humberto') {
+                            user = new User({
+                                id: data[i]['.id'],
+                                user: data[i].name,
+                                name: null,
+                                password: CryptoJS.HmacSHA1(data[i].password, secretCryptoKey),
+                                profile: data[i].profile,
+                                dynamic: data[i].dynamic,
+                                disabled: data[i].disabled,
+                                admin: true,
+                            })
+                        } else {
+                            user = new User({
+                                id: data[i]['.id'],
+                                user: data[i].name,
+                                name: null,
+                                password: CryptoJS.HmacSHA1(data[i].password, secretCryptoKey),
+                                profile: data[i].profile,
+                                dynamic: data[i].dynamic,
+                                disabled: data[i].disabled,
+                                admin: false,
+                            })
+                        }
                         user.save()
                     }
 
@@ -78,123 +87,79 @@ userController.mikrotikCreateUsers = (req, res, next) => {
                 })
                 .catch(err => {
                     responseMessage(res, 400, 'Mikrotik - Bad Request')
-                });
+                })
         })
         .catch(err => {
             responseMessage(res, 400, 'Mikrotik - Connection failed')
-        });
+        })
 }
 
 userController.getUsers = async(req, res, next) => {
-    const users = await User.find();
+    const users = await User.find()
     responseMessage(res, 200, users)
-};
+}
 
 userController.getUser = async(req, res, next) => {
-    const { username } = req.params;
-    const query = await User.findOne({ user: username });
+    const { username } = req.params
+    const query = await User.findOne({ user: username })
     const user = {
         user: query.user,
         name: query.name,
         profile: query.profile,
-        uptime: query.uptime,
-        bytesIn: query.bytesIn,
-        bytesOut: query.bytesOut,
-        packetsIn: query.packetsIn,
-        packetsOut: query.packetsOut,
         dynamic: query.dynamic,
         disabled: query.disabled,
+        admin: query.admin,
     }
     responseMessage(res, 200, user)
-};
-
-userController.login = (req, res, next) => {
-
-    const login = {
-        user: req.body.user,
-        password: atob(req.body.password),
-    }
-
-    conn.connect()
-        .then(() => {
-            conn.write('/ip/hotspot/user/print', `?name=${login.user}`)
-                .then((data) => {
-                    if (login.password == data[0].password) {
-                        const user = {
-                            user: data[0].name,
-                            // name: query.name,
-                            profile: data[0].profile,
-                            uptime: data[0].uptime,
-                            bytesIn: formatBytes(data[0]['bytes-in']),
-                            bytesOut: formatBytes(data[0]['bytes-out']),
-                            packetsIn: data[0]['packets-in'],
-                            packetsOut: data[0]['packets-out'],
-                            dynamic: data[0].dynamic,
-                            disabled: data[0].disabled,
-                        }
-                        responseMessage(res, 200, user)
-                    } else {
-                        responseMessage(res, 200, 'Contraseña incorrecta', true)
-                    }
-                })
-                .catch(err => {
-                    responseMessage(res, 200, 'Error desconocido, intente más tarde', true)
-                });
-        })
-        .catch(err => {
-            responseMessage(res, 400, 'Mikrotik - Connection failed')
-        });
 }
 
-// userController.login = async(req, res, next) => {
-//     const login = {
-//         user: req.body.user,
-//         password: CryptoJS.HmacSHA1(atob(req.body.password), secretCryptoKey)
-//     }
+userController.login = async(req, res, next) => {
+    const login = {
+        user: req.body.user,
+        password: CryptoJS.HmacSHA1(atob(req.body.password), secretCryptoKey).toString()
+    }
+    const query = await User.findOne({ user: login.user })
 
-//     const query = await User.findOne({ user: login.user })
+    if (query == null) {
+        responseMessage(res, 200, 'Usuario no encontrado', true)
+    } else {
+        if (query.user == login.user) {
+            if (query.password == login.password) {
+                conn.connect()
+                    .then(() => {
+                        conn.write('/ip/hotspot/user/print', `?name=${login.user}`)
+                            .then((data) => {
+                                const user = {
+                                    user: query.user,
+                                    name: query.name,
+                                    profile: query.profile,
+                                    uptime: data[0].uptime,
+                                    bytesIn: formatBytes(data[0]['bytes-in']),
+                                    bytesOut: formatBytes(data[0]['bytes-out']),
+                                    packetsIn: data[0]['packets-in'],
+                                    packetsOut: data[0].disabled,
+                                    dynamic: query.dynamic,
+                                    disabled: query.disabled,
+                                    admin: query.admin,
+                                }
+                                responseMessage(res, 200, user)
+                            })
+                            .catch(err => {
+                                responseMessage(res, 400, 'Error desconocido, intente más tarde', true)
+                            });
+                    })
+                    .catch(err => {
+                        responseMessage(res, 400, 'Mikrotik - Conexión fallida', true)
+                    });
+            } else {
+                responseMessage(res, 200, 'Contraseña no coincide', true)
+            }
+        } else {
+            responseMessage(res, 200, 'Usuario Incorrecto', true)
+        }
+    }
 
-//     if (query == null) {
-//         responseMessage(res, 200, 'Usuario no encontrado', true)
-//     } else {
-//         if (query.user == login.user) {
-//             if (query.password == login.password) {                            
-//                 conn.connect()
-//                 .then(() => {
-//                     conn.write('/ip/hotspot/user/print', "?name=admin")
-//                         .then((data) => {
-
-//                         const user = {
-//                             user: query.user,
-//                             name: query.name,
-//                             profile: query.profile,
-//                             uptime: query.uptime,
-//                             bytesIn: query.bytesIn,
-//                             bytesOut: query.bytesOut,
-//                             packetsIn: query.packetsIn,
-//                             packetsOut: query.packetsOut,
-//                             dynamic: query.dynamic,
-//                             disabled: query.disabled,
-//                         }
-//                             responseMessage(res, 200, data[0])
-//                         })
-//                         .catch(err => {
-//                             responseMessage(res, 400, 'Mikrotik - Bad Request')
-//                         });
-//                 })
-//                 .catch(err => {
-//                     responseMessage(res, 400, 'Mikrotik - Connection failed')
-//                 });
-//                 responseMessage(res, 200, user)
-//             } else {
-//                 responseMessage(res, 200, 'Contraseña no coincide', true)
-//             }
-//         } else {
-//             responseMessage(res, 200, 'Usuario Incorrecto', true)
-//         }
-//     }
-
-// };
+}
 
 // userController.createUser = async(req, res, next) => {
 // const user = new User({
