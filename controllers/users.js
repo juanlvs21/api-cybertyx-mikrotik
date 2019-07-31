@@ -145,11 +145,11 @@ userController.login = async(req, res, next) => {
                                 responseMessage(res, 200, user)
                             })
                             .catch(err => {
-                                responseMessage(res, 400, 'Error desconocido, intente más tarde', true)
+                                responseMessage(res, 500, 'Error desconocido, intente más tarde', true)
                             });
                     })
                     .catch(err => {
-                        responseMessage(res, 400, 'Mikrotik - Conexión fallida', true)
+                        responseMessage(res, 500, 'Mikrotik - Conexión fallida', true)
                     });
             } else {
                 responseMessage(res, 200, 'Contraseña no coincide', true)

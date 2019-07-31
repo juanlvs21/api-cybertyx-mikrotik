@@ -1,17 +1,23 @@
-const express = require('express');
-const router = express.Router();
+const express = require('express')
+const router = express.Router()
 
 // Controllers
-const users = require('../controllers/users');
+const users = require('../controllers/users')
+const plans = require('../controllers/plans')
 
 /* -----MIKROTIK - MONGODB-----  */
-router.get('/mikrotik/users/create', users.mikrotikCreateUsers);
+router.get('/mikrotik/users/create', users.mikrotikCreateUsers)
 
 /* -----USERS----- */
-router.get('/users', users.getUsers);
-router.get('/users/:username', users.getUser);
+router.get('/users', users.getUsers)
+router.get('/users/:username', users.getUser)
 
 // Login
-router.post('/session/login', users.login);
+router.post('/session/login', users.login)
 
-module.exports = router;
+// Planes
+router.get('/plans', plans.getPlans)
+router.post('/plans', plans.createPlans)
+router.delete('/plans/:id', plans.deletePlans)
+
+module.exports = router
