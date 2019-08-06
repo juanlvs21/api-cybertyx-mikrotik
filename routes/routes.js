@@ -18,6 +18,7 @@ router.post('/session/login', users.login)
 // Planes
 router.get('/plans', plans.getPlans)
 router.post('/plans', plans.createPlans)
+router.put('/plans', plans.updatePlans)
 router.delete('/plans/:id', plans.deletePlans)
 
 module.exports = router

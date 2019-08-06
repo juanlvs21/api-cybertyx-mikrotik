@@ -1,7 +1,8 @@
 // Dependencies
+const RosApi = require('node-routeros').RouterOSAPI
 const CryptoJS = require("crypto-js")
 const atob = require("atob")
-const RosApi = require('node-routeros').RouterOSAPI
+const btoa = require("btoa")
 
 // Models
 const User = require('../models/user')
@@ -57,29 +58,23 @@ userController.mikrotikCreateUsers = (req, res, next) => {
                 .then((data) => {
                     let user
                     for (let i = 1; i < data.length; i++) {
+                        let admin
                         if (data[i].name == 'admin' || data[i].name == 'humberto') {
-                            user = new User({
-                                id: data[i]['.id'],
-                                user: data[i].name,
-                                name: null,
-                                password: CryptoJS.HmacSHA1(data[i].password, secretCryptoKey),
-                                profile: data[i].profile,
-                                dynamic: data[i].dynamic,
-                                disabled: data[i].disabled,
-                                admin: true,
-                            })
+                            admin = true
                         } else {
-                            user = new User({
-                                id: data[i]['.id'],
-                                user: data[i].name,
-                                name: null,
-                                password: CryptoJS.HmacSHA1(data[i].password, secretCryptoKey),
-                                profile: data[i].profile,
-                                dynamic: data[i].dynamic,
-                                disabled: data[i].disabled,
-                                admin: false,
-                            })
+                            admin = false
                         }
+
+                        user = new User({
+                            id: data[i]['.id'],
+                            user: data[i].name,
+                            name: null,
+                            password: CryptoJS.HmacSHA1(data[i].password, secretCryptoKey),
+                            profile: data[i].profile,
+                            dynamic: data[i].dynamic,
+                            disabled: data[i].disabled,
+                            admin,
+                        })
                         user.save()
                     }
 
@@ -129,6 +124,11 @@ userController.login = async(req, res, next) => {
                     .then(() => {
                         conn.write('/ip/hotspot/user/print', `?name=${login.user}`)
                             .then((data) => {
+                                const session = {
+                                    user: query.user,
+                                    password: query.password
+                                }
+
                                 const user = {
                                     user: query.user,
                                     name: query.name,
@@ -139,8 +139,9 @@ userController.login = async(req, res, next) => {
                                     packetsIn: data[0]['packets-in'],
                                     packetsOut: data[0].disabled,
                                     dynamic: query.dynamic,
-                                    disabled: query.disabled,
+                                    disabled: data[0].disabled,
                                     admin: query.admin,
+                                    session: btoa(JSON.stringify(session))
                                 }
                                 responseMessage(res, 200, user)
                             })
