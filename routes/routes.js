@@ -14,6 +14,7 @@ router.get('/users/:username', users.getUser)
 
 // Login
 router.post('/session/login', users.login)
+router.post('/session/relogin', users.reLogin)
 
 // Planes
 router.get('/plans', plans.getPlans)

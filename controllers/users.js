@@ -50,6 +50,54 @@ const formatBytes = (bytes) => {
     return bytes
 }
 
+const functionLogin = async(res, session) => {
+    const query = await User.findOne({ user: session.user })
+
+    if (query == null) {
+        responseMessage(res, 200, 'Usuario no encontrado', true)
+    } else {
+        if (query.user == session.user) {
+            if (query.password == session.password) {
+                conn.connect()
+                    .then(() => {
+                        conn.write('/ip/hotspot/user/print', `?name=${session.user}`)
+                            .then((data) => {
+                                const session = {
+                                    user: query.user,
+                                    password: query.password
+                                }
+
+                                const user = {
+                                    user: query.user,
+                                    name: query.name,
+                                    profile: query.profile,
+                                    uptime: data[0].uptime,
+                                    bytesIn: formatBytes(data[0]['bytes-in']),
+                                    bytesOut: formatBytes(data[0]['bytes-out']),
+                                    packetsIn: data[0]['packets-in'],
+                                    packetsOut: data[0].disabled,
+                                    disabled: data[0].disabled,
+                                    admin: query.admin,
+                                    session: btoa(JSON.stringify(session))
+                                }
+                                responseMessage(res, 200, user)
+                            })
+                            .catch(err => {
+                                responseMessage(res, 500, 'Error desconocido, intente más tarde', true)
+                            });
+                    })
+                    .catch(err => {
+                        responseMessage(res, 500, 'Mikrotik - Conexión fallida', true)
+                    });
+            } else {
+                responseMessage(res, 200, 'Contraseña no coincide', true)
+            }
+        } else {
+            responseMessage(res, 200, 'Usuario Incorrecto', true)
+        }
+    }
+}
+
 
 userController.mikrotikCreateUsers = (req, res, next) => {
     conn.connect()
@@ -71,7 +119,6 @@ userController.mikrotikCreateUsers = (req, res, next) => {
                             name: null,
                             password: CryptoJS.HmacSHA1(data[i].password, secretCryptoKey),
                             profile: data[i].profile,
-                            dynamic: data[i].dynamic,
                             disabled: data[i].disabled,
                             admin,
                         })
@@ -90,7 +137,21 @@ userController.mikrotikCreateUsers = (req, res, next) => {
 }
 
 userController.getUsers = async(req, res, next) => {
-    const users = await User.find()
+    const query = await User.find()
+    let users = []
+
+    for (let i = 0; i < query.length; i++) {
+        users.push({
+            admin: query[i].admin,
+            disabled: query[i].disabled,
+            name: query[i].name,
+            password: query[i].password,
+            profile: query[i].profile,
+            user: query[i].user,
+            id: query[i]._id,
+        })
+    }
+
     responseMessage(res, 200, users)
 }
 
@@ -101,65 +162,26 @@ userController.getUser = async(req, res, next) => {
         user: query.user,
         name: query.name,
         profile: query.profile,
-        dynamic: query.dynamic,
         disabled: query.disabled,
         admin: query.admin,
     }
     responseMessage(res, 200, user)
 }
 
-userController.login = async(req, res, next) => {
-    const login = {
+userController.login = (req, res, next) => {
+    const session = {
         user: req.body.user,
         password: CryptoJS.HmacSHA1(atob(req.body.password), secretCryptoKey).toString()
     }
-    const query = await User.findOne({ user: login.user })
 
-    if (query == null) {
-        responseMessage(res, 200, 'Usuario no encontrado', true)
-    } else {
-        if (query.user == login.user) {
-            if (query.password == login.password) {
-                conn.connect()
-                    .then(() => {
-                        conn.write('/ip/hotspot/user/print', `?name=${login.user}`)
-                            .then((data) => {
-                                const session = {
-                                    user: query.user,
-                                    password: query.password
-                                }
+    functionLogin(res, session)
+}
 
-                                const user = {
-                                    user: query.user,
-                                    name: query.name,
-                                    profile: query.profile,
-                                    uptime: data[0].uptime,
-                                    bytesIn: formatBytes(data[0]['bytes-in']),
-                                    bytesOut: formatBytes(data[0]['bytes-out']),
-                                    packetsIn: data[0]['packets-in'],
-                                    packetsOut: data[0].disabled,
-                                    dynamic: query.dynamic,
-                                    disabled: data[0].disabled,
-                                    admin: query.admin,
-                                    session: btoa(JSON.stringify(session))
-                                }
-                                responseMessage(res, 200, user)
-                            })
-                            .catch(err => {
-                                responseMessage(res, 500, 'Error desconocido, intente más tarde', true)
-                            });
-                    })
-                    .catch(err => {
-                        responseMessage(res, 500, 'Mikrotik - Conexión fallida', true)
-                    });
-            } else {
-                responseMessage(res, 200, 'Contraseña no coincide', true)
-            }
-        } else {
-            responseMessage(res, 200, 'Usuario Incorrecto', true)
-        }
-    }
 
+userController.reLogin = (req, res, next) => {
+    const session = JSON.parse(atob(req.body.cookieSession))
+
+    functionLogin(res, session)
 }
 
 // userController.createUser = async(req, res, next) => {
@@ -173,7 +195,6 @@ userController.login = async(req, res, next) => {
 //     bytesOut: req.body.bytesOut,
 //     packetsIn: req.body.packetsIn,
 //     packetsOut: req.body.packetsOut,
-//     dynamic: req.body.dynamic,
 //     disabled: req.body.disabled,
 // });
 //     await user.save();
