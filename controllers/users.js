@@ -136,6 +136,21 @@ userController.mikrotikCreateUsers = (req, res, next) => {
         })
 }
 
+userController.login = (req, res, next) => {
+    const session = {
+        user: req.body.user,
+        password: CryptoJS.HmacSHA1(atob(req.body.password), secretCryptoKey).toString()
+    }
+
+    functionLogin(res, session)
+}
+
+userController.reLogin = (req, res, next) => {
+    const session = JSON.parse(atob(req.body.cookieSession))
+
+    functionLogin(res, session)
+}
+
 userController.getUsers = async(req, res, next) => {
     const query = await User.find()
     let users = []
@@ -168,21 +183,18 @@ userController.getUser = async(req, res, next) => {
     responseMessage(res, 200, user)
 }
 
-userController.login = (req, res, next) => {
-    const session = {
-        user: req.body.user,
-        password: CryptoJS.HmacSHA1(atob(req.body.password), secretCryptoKey).toString()
-    }
+userController.updateUser = async(req, res, next) => {
+    const user = req.body
+    const queryGet = await User.findOne({ user: user.user })
 
-    functionLogin(res, session)
+    let updateUser = queryGet
+    updateUser.name = user.name
+
+    const queryUpdate = await User.updateOne({ _id: Object(updateUser._id) }, updateUser)
+
+    responseMessage(res, 200, user)
 }
 
-
-userController.reLogin = (req, res, next) => {
-    const session = JSON.parse(atob(req.body.cookieSession))
-
-    functionLogin(res, session)
-}
 
 // userController.createUser = async(req, res, next) => {
 // const user = new User({

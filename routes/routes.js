@@ -11,6 +11,7 @@ router.get('/mikrotik/users/create', users.mikrotikCreateUsers)
 /* -----USERS----- */
 router.get('/users', users.getUsers)
 router.get('/users/:username', users.getUser)
+router.put('/users', users.updateUser)
 
 // Login
 router.post('/session/login', users.login)
