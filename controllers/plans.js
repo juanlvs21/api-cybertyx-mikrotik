@@ -1,8 +1,16 @@
 // Dependencies
+const RosApi = require('node-routeros').RouterOSAPI
 const fetch = require('node-fetch');
 
 // Models
 const Plans = require('../models/plans')
+
+const conn = new RosApi({
+    host: '10.0.8.1',
+    user: 'admin',
+    password: 'mafafa',
+    keepalive: true
+})
 
 const plansController = {};
 
@@ -39,6 +47,26 @@ const responseMessage = (res, status, data, error, empty, dolartodayError = null
             }
         }
     }
+}
+
+plansController.getProfilesNames = async(req, res, next) => {
+    let profiles = []
+    conn.connect()
+        .then(() => {
+            conn.write('/ip/hotspot/user/profile/print')
+                .then(data => {
+                    for (let i = 0; i < data.length; i++) {
+                        profiles.push(data[i].name)
+                    }
+                    responseMessage(res, 200, profiles)
+                })
+                .catch(err => {
+                    responseMessage(res, 400, 'Mikrotik - Bad Request')
+                })
+        })
+        .catch(err => {
+            responseMessage(res, 400, 'Mikrotik - Connection failed')
+        })
 }
 
 plansController.getPlans = async(req, res, next) => {

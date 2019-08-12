@@ -151,8 +151,42 @@ userController.reLogin = (req, res, next) => {
     functionLogin(res, session)
 }
 
+userController.addUser = async(req, res, next) => {
+    const { user, profile } = req.body
+
+    conn.connect()
+        .then(() => {
+            conn.write('/ip/hotspot/user/add', [`=name=${user}`, '=password=12345', `=profile=${profile}`])
+                .then(() => {
+                    conn.write('/ip/hotspot/user/print', `?name=${user}`)
+                        .then(data => {
+                            let newUser = new User({
+                                id: data[0]['.id'],
+                                user: data[0].name,
+                                name: null,
+                                password: CryptoJS.HmacSHA1(data[0].password, secretCryptoKey),
+                                profile: data[0].profile,
+                                disabled: data[0].disabled,
+                                admin: false,
+                            })
+                            newUser.save()
+                            responseMessage(res, 200, 'User added successfully')
+                        })
+                        .catch(err => {
+                            responseMessage(res, 500, 'Error desconocido, intente más tarde', true)
+                        });
+                })
+                .catch(err => {
+                    responseMessage(res, 400, 'Mikrotik - Bad Request')
+                })
+        })
+        .catch(err => {
+            responseMessage(res, 400, 'Mikrotik - Connection failed')
+        })
+}
+
 userController.getUsers = async(req, res, next) => {
-    const query = await User.find()
+    const query = await User.find().sort({ user: 1 })
     let users = []
 
     for (let i = 0; i < query.length; i++) {
@@ -163,7 +197,7 @@ userController.getUsers = async(req, res, next) => {
             password: query[i].password,
             profile: query[i].profile,
             user: query[i].user,
-            id: query[i]._id,
+            id: query[i].id,
         })
     }
 
@@ -193,6 +227,103 @@ userController.updateUser = async(req, res, next) => {
     const queryUpdate = await User.updateOne({ _id: Object(updateUser._id) }, updateUser)
 
     responseMessage(res, 200, user)
+}
+
+userController.deleteUser = async(req, res, next) => {
+    const { id } = req.body
+
+    const queryGet = await User.findOne({ id })
+    const queryDelete = await User.deleteOne({ _id: Object(queryGet._id) });
+
+    conn.connect()
+        .then(() => {
+            conn.write('/ip/hotspot/user/remove', `=.id=${id}`)
+                .then(data => {
+                    responseMessage(res, 200, 'User successfully deleted')
+                })
+                .catch(err => {
+                    responseMessage(res, 400, 'Mikrotik - Bad Request')
+                })
+        })
+        .catch(err => {
+            responseMessage(res, 400, 'Mikrotik - Connection failed')
+        })
+}
+
+userController.disableUser = async(req, res, next) => {
+    const { id } = req.body
+
+    const queryGet = await User.findOne({ id })
+
+    let updateUser = queryGet
+    updateUser.disabled = true
+
+    const queryUpdate = await User.updateOne({ _id: Object(updateUser._id) }, updateUser)
+
+    conn.connect()
+        .then(() => {
+            conn.write('/ip/hotspot/user/disable', `=.id=${id}`)
+                .then(data => {
+                    responseMessage(res, 200, 'User successfully deactivated')
+                })
+                .catch(err => {
+                    responseMessage(res, 400, 'Mikrotik - Bad Request')
+                })
+        })
+        .catch(err => {
+            responseMessage(res, 400, 'Mikrotik - Connection failed')
+        })
+}
+
+userController.enableUser = async(req, res, next) => {
+    const { id } = req.body
+
+    const queryGet = await User.findOne({ id })
+
+    let updateUser = queryGet
+    updateUser.disabled = false
+
+    const queryUpdate = await User.updateOne({ _id: Object(updateUser._id) }, updateUser)
+
+    conn.connect()
+        .then(() => {
+            conn.write('/ip/hotspot/user/enable', `=.id=${id}`)
+                .then(data => {
+                    responseMessage(res, 200, 'User successfully deactivated')
+                })
+                .catch(err => {
+                    responseMessage(res, 400, 'Mikrotik - Bad Request')
+                })
+        })
+        .catch(err => {
+            responseMessage(res, 400, 'Mikrotik - Connection failed')
+        })
+}
+
+userController.typeAdminUser = async(req, res, next) => {
+    const { id } = req.body
+
+    const queryGet = await User.findOne({ id })
+
+    let updateUser = queryGet
+    updateUser.admin = true
+
+    const queryUpdate = await User.updateOne({ _id: Object(updateUser._id) }, updateUser)
+
+    responseMessage(res, 200, 'User is now an administrator')
+}
+
+userController.typeDefaultUser = async(req, res, next) => {
+    const { id } = req.body
+
+    const queryGet = await User.findOne({ id })
+
+    let updateUser = queryGet
+    updateUser.admin = false
+
+    const queryUpdate = await User.updateOne({ _id: Object(updateUser._id) }, updateUser)
+
+    responseMessage(res, 200, 'User is now not an administrator')
 }
 
 
